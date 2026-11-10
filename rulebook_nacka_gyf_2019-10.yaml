@@ -1,0 +1,853 @@
+# Nacka kommun - Grönytefaktor Nacka stad, version 2 (oktober 2019)
+# Factors, groups and template cells generated from the official
+# 'berakningsmall-gronytefaktor-nacka-stad-version-2.xlsx' and checked against the guide.
+meta:
+  id: se-nacka-gyf-nacka-stad
+  name: {sv: "Grönytefaktor - Nacka stad", en: "Green area factor - Nacka stad"}
+  country: SE
+  municipality: Nacka
+  scheme: GYF
+  version: "2019-10"
+  effective_from: 2019-10-01
+  status: verified        # engine output = official template recalculated in LibreOffice (tests/test_nacka_template.py)
+  crs: "EPSG:3006"
+  languages: [sv]
+
+sources:
+  - title: "Grönytefaktor Nacka stad, version 2, oktober 2019"
+    pages: "4-6 (balancing, target), 12-21 (factors and unit areas)"
+    retrieved: 2026-11-07
+  - title: "Beräkningsmall grönytefaktor Nacka stad, version 2 (xlsx)"
+    retrieved: 2026-11-07
+
+score:
+  type: weighted_area_ratio
+  rounding: 2
+
+targets:
+  type: fixed
+  target: 0.6
+  note: "Ambition for residential blocks in Nacka stad"
+  allow_project_override: true
+
+balancing:
+  method: factor_count
+  status: verified
+  rule: "At least 60% of selectable qualities in S and D, and at least 50% in B, K and L"
+  groups:
+    - {id: S, name: {sv: Sociala värden, en: Social values}, min_share: 0.60, max_count: 16}
+    - {id: D, name: {sv: Dagvattenhantering, en: Stormwater management}, min_share: 0.60, max_count: 10}
+    - {id: B, name: {sv: Biologisk mångfald, en: Biodiversity}, min_share: 0.50, max_count: 15}
+    - {id: K, name: {sv: Lokalklimat, en: Local climate}, min_share: 0.50, max_count: 6}
+    - {id: L, name: {sv: Luftrening, en: Air purification}, min_share: 0.50, max_count: 5}
+  exclusive_sets:
+    - ids: [infiltrate_10mm, infiltrate_15mm, infiltrate_20mm, tank_10mm]
+      text: "Enbart en av kvaliteterna för fördröjning och rening väljs"
+
+
+cad_layers:
+  standard: Nacka stad GYF CAD layer template (gyf_kvarter_2_0.dwg)
+  code_pattern: ^(G_Y\d+|K\d+)(?=[\s._]|$)
+  plot_boundary_layer_pattern: ^G_grans
+  codes:
+    G_Y1: natural_ground_preserved
+    G_Y2: ground_green_unbuilt
+    G_Y3: bed_800
+    G_Y4: bed_600_799
+    G_Y5: bed_200_599
+    G_Y6: roof_300
+    G_Y7: roof_110_299
+    G_Y8: roof_50_109
+    G_Y9: wall_green
+    G_Y10: balcony_green
+    G_Y11: tree_existing_large
+    G_Y12: tree_existing_other
+    G_Y13: tree_new_large
+    G_Y14: tree_new_medium
+    G_Y15: tree_new_small
+    G_Y16: shrubs
+    G_Y17: water_ponds
+    G_Y18: paving_grass_reinforced
+    G_Y19: paving_gravel
+    G_Y20: paving_jointed
+    G_Y21: sealed
+    K1: social_lawn
+    K2: cultivation
+    K3: cultivation_roof_balcony
+    K4: shared_roof_terrace
+    K5: visible_green_roof
+    K6: green_walls_experience
+    K7: flower_display
+    K8: shrubs_experience
+    K9: shrubs_edible
+    K10: trees_experience
+    K11: fruit_flowering_trees
+    K12: pergola
+    K13: habitat_experience
+    K14: viewpoint
+    K15: water_features
+    K16: water_experience
+    K17: infiltrate_10mm
+    K18: infiltrate_15mm
+    K19: infiltrate_20mm
+    K20: tank_10mm
+    K21: ground_green_infiltration
+    K22: slab_bed_300
+    K23: slab_bed_50_299
+    K24: permeable_paving
+    K25: rain_garden
+    K26: skeleton_soil
+    K27: flood_area
+    K28: series_systems
+    K29: downspout_splash
+    K30: field_diversity
+    K31: natural_species
+    K32: sedum_diversity
+    K33: balcony_climbers
+    K34: butterfly_bed
+    K35: shrubs_berry
+    K36: tree_old_coarse
+    K37: tree_character
+    K38: tree_berry
+    K39: nest_boxes
+    K40: beetle_boxes
+    K41: habitat_target_species
+    K42: water_permanent
+    K43: water_temporary
+    K44: green_blue_connection
+    K45: shade_trees
+    K46: shade_pergola
+    K47: roof_or_multilayer
+    K48: water_dry_periods
+    K49: rainwater_irrigation
+    K50: wind_trees
+    K51: trees_air
+    K52: vegetated_ground_air
+    K53: wall_green_air
+    K54: green_roofs_air
+    K55: trees_air_species
+
+
+spatial:
+  note: "Ground surfaces G_Y1-G_Y5 and G_Y17-G_Y21 partition the open ground; G_Y6-G_Y8 lie on roofs."
+  ground_partition: [natural_ground_preserved, ground_green_unbuilt, bed_800, bed_600_799, bed_200_599,
+                     water_ponds, paving_grass_reinforced, paving_gravel, paving_jointed, sealed]
+  roof: [roof_300, roof_110_299, roof_50_109]
+  overlays_on_base: true
+  planting_qualities: [field_diversity, natural_species, flower_display, shrubs_experience, butterfly_bed,
+                       shrubs_berry, roof_or_multilayer, vegetated_ground_air]
+  quality_requires:            # used by advice only; the calculation follows the city's template
+    visible_green_roof: [roof_300, roof_110_299, roof_50_109]
+    sedum_diversity: [roof_110_299, roof_50_109]
+    green_roofs_air: [roof_300, roof_110_299, roof_50_109]
+    slab_bed_300: [bed_800, bed_600_799, bed_200_599]
+    slab_bed_50_299: [bed_800, bed_600_799, bed_200_599]
+    ground_green_infiltration: [ground_green_unbuilt, natural_ground_preserved]
+    permeable_paving: [paving_grass_reinforced, paving_gravel, paving_jointed]
+    green_walls_experience: [wall_green]
+    wall_green_air: [wall_green]
+    balcony_climbers: [balcony_green]
+    water_experience: [water_ponds]
+    water_permanent: [water_ponds]
+  within_rules:
+  - factors: [tree_existing_large, tree_existing_other, tree_new_large, tree_new_medium, tree_new_small,
+              trees_experience, fruit_flowering_trees, tree_old_coarse, tree_character, tree_berry,
+              shade_trees, wind_trees, trees_air, trees_air_species]
+    within: [natural_ground_preserved, ground_green_unbuilt, bed_800, bed_600_799]
+    severity: warning
+    source: verdiq_check
+    text: "Tree is not inside unbuilt ground or a planting bed of at least 600 mm"
+
+factors:
+- id: natural_ground_preserved
+  kind: base
+  section: ytor
+  factor: 1.5
+  measure: area
+  groups: []
+  label:
+    sv: Bevarad naturmark
+- id: ground_green_unbuilt
+  kind: base
+  section: ytor
+  factor: 1.1
+  measure: area
+  groups: []
+  label:
+    sv: Ej underbyggd markgrönska
+- id: bed_800
+  kind: base
+  section: ytor
+  factor: 0.9
+  measure: area
+  groups: []
+  label:
+    sv: Växtbädd ≥ 800 mm djup
+- id: bed_600_799
+  kind: base
+  section: ytor
+  factor: 0.4
+  measure: area
+  groups: []
+  label:
+    sv: Växtbädd 600-799 mm djup
+- id: bed_200_599
+  kind: base
+  section: ytor
+  factor: 0.1
+  measure: area
+  groups: []
+  label:
+    sv: Växtbädd 200-599 mm djup
+- id: roof_300
+  kind: base
+  section: ytor
+  factor: 0.3
+  measure: area
+  groups: []
+  label:
+    sv: Grönt tak med ≥ 300 mm djup växtbädd
+- id: roof_110_299
+  kind: base
+  section: ytor
+  factor: 0.1
+  measure: area
+  groups: []
+  label:
+    sv: Grönt tak med 110-299 mm djup växtbädd
+- id: roof_50_109
+  kind: base
+  section: ytor
+  factor: 0.05
+  measure: area
+  groups: []
+  label:
+    sv: Grönt tak med 50 - 109 mm djup växtbädd
+- id: wall_green
+  kind: base
+  section: ytor
+  factor: 0.4
+  measure: area
+  groups: []
+  label:
+    sv: Grönska på väggar
+- id: balcony_green
+  kind: base
+  section: ytor
+  factor: 0.3
+  measure: area
+  groups: []
+  label:
+    sv: Grönskande balkonger
+- id: tree_existing_large
+  kind: base
+  section: ytor
+  factor: 3.0
+  measure: count
+  groups: []
+  label:
+    sv: Befintliga stora träd >30 cm
+  unit_area_m2: 50
+- id: tree_existing_other
+  kind: base
+  section: ytor
+  factor: 1.5
+  measure: count
+  groups: []
+  label:
+    sv: Befintliga övriga träd 15-30 cm
+  unit_area_m2: 50
+- id: tree_new_large
+  kind: base
+  section: ytor
+  factor: 2.4
+  measure: count
+  groups: []
+  label:
+    sv: Nya stora träd (stam >30 cm)
+  unit_area_m2: 25
+- id: tree_new_medium
+  kind: base
+  section: ytor
+  factor: 1.5
+  measure: count
+  groups: []
+  label:
+    sv: Nya mellanstora träd (stam 20-30 cm)
+  unit_area_m2: 25
+- id: tree_new_small
+  kind: base
+  section: ytor
+  factor: 1.0
+  measure: count
+  groups: []
+  label:
+    sv: Nya små träd (stam 16-20 cm)
+  unit_area_m2: 25
+- id: shrubs
+  kind: base
+  section: ytor
+  factor: 0.2
+  measure: area
+  groups: []
+  label:
+    sv: Buskar generellt
+- id: water_ponds
+  kind: base
+  section: ytor
+  factor: 1.0
+  measure: area
+  groups: []
+  label:
+    sv: Vattenytor i dammar, bäckar och diken
+- id: paving_grass_reinforced
+  kind: base
+  section: ytor
+  factor: 0.3
+  measure: area
+  groups: []
+  label:
+    sv: Hårdgjorda ytor med hög genomsläpplighet - gräsarmering
+- id: paving_gravel
+  kind: base
+  section: ytor
+  factor: 0.2
+  measure: area
+  groups: []
+  label:
+    sv: Hårdgjorda ytor med medelhög genomsläpplighet - grus,sand mm
+- id: paving_jointed
+  kind: base
+  section: ytor
+  factor: 0.05
+  measure: area
+  groups: []
+  label:
+    sv: Hårdgjorda ytor med viss genomsläpplighet - plattytor med fogar
+- id: sealed
+  kind: base
+  section: ytor
+  factor: 0.0
+  measure: area
+  groups: []
+  label:
+    sv: Täta ytor
+- id: social_lawn
+  kind: supplementary
+  section: S
+  factor: 1.2
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Gräsytor för social aktivitet >75 kvm
+  constraints:
+  - type: min_area
+    value: 75
+    severity: warning
+    text: Gräsytan ska vara större än 75 kvm
+- id: cultivation
+  kind: supplementary
+  section: S
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Odlingsytor
+- id: cultivation_roof_balcony
+  kind: supplementary
+  section: S
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Tak, balkonger, terrasser och växthus för odling
+- id: shared_roof_terrace
+  kind: supplementary
+  section: S
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Gemensamma takterasser
+- id: visible_green_roof
+  kind: supplementary
+  section: S
+  factor: 0.05
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Synliga gröna tak
+- id: green_walls_experience
+  kind: supplementary
+  section: S
+  factor: 0.1
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Gröna väggar, upplevelsevärden
+- id: flower_display
+  kind: supplementary
+  section: S
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Blomsterprakt i fältskiktet
+- id: shrubs_experience
+  kind: supplementary
+  section: S
+  factor: 0.1
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Buskar upplevelsevärden
+- id: shrubs_edible
+  kind: supplementary
+  section: S
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Buskar med ätliga bär och frukter
+- id: trees_experience
+  kind: supplementary
+  section: S
+  factor: 0.4
+  measure: count
+  groups:
+  - S
+  label:
+    sv: Träd, upplevelsevärden
+  unit_area_m2: 25
+- id: fruit_flowering_trees
+  kind: supplementary
+  section: S
+  factor: 0.2
+  measure: count
+  groups:
+  - S
+  label:
+    sv: Fruktträd och blommande träd
+  unit_area_m2: 25
+- id: pergola
+  kind: supplementary
+  section: S
+  factor: 0.3
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Pergolor o.dyl.
+- id: habitat_experience
+  kind: supplementary
+  section: S
+  factor: 0.2
+  measure: count
+  groups:
+  - S
+  label:
+    sv: Habitatstärkande åtgärder, upplevelsevärden
+  unit_area_m2: 5
+- id: viewpoint
+  kind: supplementary
+  section: S
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Utsiktsplats mot grönska och/eller vatten
+- id: water_features
+  kind: supplementary
+  section: S
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Vattenspeglar, cirkulerande rinnande vatten, fontäner och dylikt
+- id: water_experience
+  kind: supplementary
+  section: S
+  factor: 1.0
+  measure: area
+  groups:
+  - S
+  label:
+    sv: Biologiskt tillgängliga vatten - upplevelsevärden
+- id: infiltrate_10mm
+  kind: supplementary
+  section: D
+  factor: 0.05
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Minst 10 mm infiltreras i växtbädd
+- id: infiltrate_15mm
+  kind: supplementary
+  section: D
+  factor: 0.1
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Minst 15 mm infiltreras i växtbädd
+- id: infiltrate_20mm
+  kind: supplementary
+  section: D
+  factor: 0.15
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Minst 20 mm infiltreras i växtbädd
+- id: tank_10mm
+  kind: supplementary
+  section: D
+  factor: 0.02
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Minst 10 mm fördröjs och renas i magasin
+- id: ground_green_infiltration
+  kind: supplementary
+  section: D
+  factor: 0.1
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Ej underbyggd markgrönska där vatten kan infiltrera
+- id: slab_bed_300
+  kind: supplementary
+  section: D
+  factor: 0.1
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Växtytor med minst ≥ 300 mm jorddjup på bjälklag
+- id: slab_bed_50_299
+  kind: supplementary
+  section: D
+  factor: 0.05
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Växtytor med 50-299 mm jorddjup på bjälklag
+- id: permeable_paving
+  kind: supplementary
+  section: D
+  factor: 0.05
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Genomsläppliga beläggningar
+- id: rain_garden
+  kind: supplementary
+  section: D
+  factor: 0.5
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Regnbädd som omhändertar dagvatten
+- id: skeleton_soil
+  kind: supplementary
+  section: D
+  factor: 0.2
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Skelettjord som omhändertar dagvatten
+- id: flood_area
+  kind: supplementary
+  section: D
+  factor: 0.2
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Översvämningsyta, tillfällig ytvattensamling
+- id: series_systems
+  kind: supplementary
+  section: D
+  factor: 0.02
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Seriekopplade dagvattensystem
+- id: downspout_splash
+  kind: supplementary
+  section: D
+  factor: 0.02
+  measure: area
+  groups:
+  - D
+  label:
+    sv: Stuprör med utkastare
+- id: field_diversity
+  kind: supplementary
+  section: B
+  factor: 0.05
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Diversitet i fältskiktet
+- id: natural_species
+  kind: supplementary
+  section: B
+  factor: 0.5
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Naturligt arturval
+- id: sedum_diversity
+  kind: supplementary
+  section: B
+  factor: 0.1
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Diversitet på gröna tunna sedumtak
+- id: balcony_climbers
+  kind: supplementary
+  section: B
+  factor: 0.3
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Grönskande balkonger med häng- eller klätterväxter
+- id: butterfly_bed
+  kind: supplementary
+  section: B
+  factor: 1.0
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Fjärilsrabatt
+- id: shrubs_berry
+  kind: supplementary
+  section: B
+  factor: 0.4
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Bärande buskar
+- id: tree_old_coarse
+  kind: supplementary
+  section: B
+  factor: 3.0
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Äldre, grova träd
+  unit_area_m2: 25
+- id: tree_character
+  kind: supplementary
+  section: B
+  factor: 3.0
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Karaktärsträd
+  unit_area_m2: 25
+- id: tree_berry
+  kind: supplementary
+  section: B
+  factor: 0.4
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Bärande träd
+  unit_area_m2: 25
+- id: nest_boxes
+  kind: supplementary
+  section: B
+  factor: 0.5
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Holkar, bikupor
+  unit_area_m2: 5
+  template_unit_area_m2: 25
+  note: Guide and template column F give 5 m2 per element, but the template formula (=E72*25) multiplies by 25. Verdiq follows the guide; use template_compat to reproduce the sheet.
+- id: beetle_boxes
+  kind: supplementary
+  section: B
+  factor: 2.0
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Baggholkar och faunadepåer
+  unit_area_m2: 5
+  template_unit_area_m2: 25
+  note: Guide and template column F give 5 m2 per element, but the template formula (=E73*25) multiplies by 25. Verdiq follows the guide; use template_compat to reproduce the sheet.
+- id: habitat_target_species
+  kind: supplementary
+  section: B
+  factor: 2.0
+  measure: count
+  groups:
+  - B
+  label:
+    sv: Habitatstärkande åtgärder för särskilt utpekade arter
+  unit_area_m2: 5
+  template_unit_area_m2: 25
+  note: Guide and template column F give 5 m2 per element, but the template formula (=E74*25) multiplies by 25. Verdiq follows the guide; use template_compat to reproduce the sheet.
+- id: water_permanent
+  kind: supplementary
+  section: B
+  factor: 4.0
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Biologiskt tillgängliga permanenta vattenytor
+- id: water_temporary
+  kind: supplementary
+  section: B
+  factor: 0.05
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Ytvattensamlingar, fuktstråk med tillfälligt vatten
+- id: green_blue_connection
+  kind: supplementary
+  section: B
+  factor: 0.01
+  measure: area
+  groups:
+  - B
+  label:
+    sv: Koppling till existerande grön- och blåstruktur utanför området
+- id: shade_trees
+  kind: supplementary
+  section: K
+  factor: 0.4
+  measure: count
+  groups:
+  - K
+  label:
+    sv: Träd placerade så att de ger lövskugga
+  unit_area_m2: 25
+- id: shade_pergola
+  kind: supplementary
+  section: K
+  factor: 0.5
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Pergolor, lövgångar mm som ger lövskugga
+- id: roof_or_multilayer
+  kind: supplementary
+  section: K
+  factor: 0.05
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Gröna tak eller flerskiktad markgrönska
+- id: water_dry_periods
+  kind: supplementary
+  section: K
+  factor: 0.5
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Vattensamlingar för torrperioder
+- id: rainwater_irrigation
+  kind: supplementary
+  section: K
+  factor: 0.05
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Uppsamling av regnvatten för bevattning
+- id: wind_trees
+  kind: supplementary
+  section: K
+  factor: 0.4
+  measure: count
+  groups:
+  - K
+  label:
+    sv: Träd som ger vindskydd
+  unit_area_m2: 25
+- id: trees_air
+  kind: supplementary
+  section: L
+  factor: 0.1
+  measure: count
+  groups:
+  - L
+  label:
+    sv: Befintliga och nya träd
+  unit_area_m2: 25
+- id: vegetated_ground_air
+  kind: supplementary
+  section: L
+  factor: 0.1
+  measure: area
+  groups:
+  - L
+  label:
+    sv: Vegetationsklädd mark
+- id: wall_green_air
+  kind: supplementary
+  section: L
+  factor: 0.05
+  measure: area
+  groups:
+  - L
+  label:
+    sv: Grönska på väggar
+- id: green_roofs_air
+  kind: supplementary
+  section: L
+  factor: 0.02
+  measure: area
+  groups:
+  - L
+  label:
+    sv: Gröna tak
+- id: trees_air_species
+  kind: supplementary
+  section: L
+  factor: 0.3
+  measure: count
+  groups:
+  - L
+  label:
+    sv: Trädarter som har särskilt god luftreningsförmåga
+  unit_area_m2: 25

@@ -1,0 +1,868 @@
+# Sweden Green Building Council (SGBC) - Beräkningsverktyg Grönytefaktor inom Miljöbyggnad (MB Nybyggnad / MB Ombyggnad)
+# Factors, groups, dependency rules and cell map generated from SGBC's own Excel tool
+# 'Berakningsverktyg-GYF-MB-Nybyggnad-MB-Ombyggnad.xlsx' and verified by recalculating that file.
+# Used for Miljöbyggnad 4.0 indicator 11 (Ekosystemtjänster) where the municipality has no required model.
+meta:
+  id: se-sgbc-miljobyggnad-gyf
+  name: {sv: "Grönytefaktor inom Miljöbyggnad (SGBC)", en: "Green area factor for Miljöbyggnad (SGBC)"}
+  country: SE
+  municipality: "SGBC Miljöbyggnad (hela Sverige)"
+  scheme: MB-GYF
+  version: "2026"
+  status: verified        # engine output = SGBC's Excel tool recalculated in LibreOffice (tests/test_sgbc_template.py)
+  crs: "EPSG:3006"
+  languages: [sv]
+
+sources:
+  - title: "Beräkningsverktyg Grönytefaktor MB Nybyggnad och MB Ombyggnad (SGBC, xlsx)"
+    note: "Sheets: Introduktion, Indata o resultat GYF-beräkning, Ordförklaring Grönska o vatten"
+    retrieved: 2026-11-07
+  - title: "SGBC: nytt verktyg för beräkning av grönytefaktor i Miljöbyggnad 4.0"
+    url: "https://www.sgbc.se"
+    retrieved: 2026-11-07
+
+score:
+  type: weighted_area_ratio
+  rounding: 2
+
+targets:
+  type: lookup
+  by: built_share_pct
+  table:
+    - {lt: 50, target: 0.8}
+    - {gte: 50, target: 0.4}
+  note: "Målvärden MB Nybyggnad: under 50% bebyggd minst 0,8; 50% eller mer minst 0,4"
+  allow_project_override: true
+
+balancing:
+  method: factor_count
+  status: verified
+  required: false         # the tool reports shares per group but sets no minimum
+  rule: "Shares of supporting, regulating and cultural ecosystem services are reported (no minimum in the tool)"
+  groups:
+    - {id: S, name: {sv: Stödjande, en: Supporting}, max_count: 43}
+    - {id: R, name: {sv: Reglerande, en: Regulating}, max_count: 46}
+    - {id: K, name: {sv: Kulturella, en: Cultural}, max_count: 40}
+
+spatial:
+  ground_partition: [natural_ground_preserved, bed_unbuilt, bed_slab_800, bed_slab_600_800, bed_slab_200_600,
+                     water_ponds, sealed, paving_semi_open, paving_open, paving_jointed]
+  roof: [roof_400, roof_250_400, roof_120_250, roof_50_120]
+  overlays_on_base: true
+  planting_qualities: [field_diversity, roof_diversity_90, habitat_species, pollinator_bed, shrub_plantings_hedges,
+                       multilayer_vegetation]
+  within_rules:
+  - factors: [tree_existing, tree_existing_landscape, tree_new_small, tree_new_medium, tree_new_large, tree_character,
+              tree_berry, tree_pollinator, shade_trees]
+    within: [natural_ground_preserved, bed_unbuilt, bed_slab_800, bed_slab_600_800]
+    severity: warning
+    source: verdiq_check
+    text: "Tree is not inside natural ground or a planting bed of at least 600 mm"
+
+factors:
+- id: natural_ground_preserved
+  kind: base
+  section: green_base
+  factor: 1.6
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Bevarad naturmark
+- id: bed_unbuilt
+  kind: base
+  section: green_base
+  factor: 1.6
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Ej underbyggd växtbädd
+- id: bed_slab_800
+  kind: base
+  section: green_base
+  factor: 1.5
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Växtbädd på bjälklag >800 mm djup
+- id: bed_slab_600_800
+  kind: base
+  section: green_base
+  factor: 0.4
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Växtbädd på bjälklag 600-800 mm djup
+- id: bed_slab_200_600
+  kind: base
+  section: green_base
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Växtbädd på bjälklag 200-600 mm djup
+- id: roof_400
+  kind: base
+  section: green_base
+  factor: 1.0
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Grönt tak med >400 mm djup växtbädd
+- id: roof_250_400
+  kind: base
+  section: green_base
+  factor: 0.4
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Grönt tak med 250-400 mm djup växtbädd
+- id: roof_120_250
+  kind: base
+  section: green_base
+  factor: 0.3
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Grönt tak med 120-250 mm djup växtbädd
+- id: roof_50_120
+  kind: base
+  section: green_base
+  factor: 0.1
+  measure: area
+  groups:
+  - R
+  - K
+  label:
+    sv: Grönt tak med 50 - 120 mm djup växtbädd
+- id: wall_substrate
+  kind: base
+  section: green_base
+  factor: 0.7
+  measure: area
+  groups:
+  - R
+  - K
+  label:
+    sv: Gröna väggar med växtsubstrat
+- id: balcony_bed
+  kind: base
+  section: green_base
+  factor: 0.3
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Växtbädd balkonger/odlingskärl
+- id: field_diversity
+  kind: supplementary
+  section: green_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Diversitet i fältskiktet
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: roof_diversity_90
+  kind: supplementary
+  section: green_quality
+  factor: 0.3
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Diversitet på gröna tak >90 mm
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: habitat_species
+  kind: supplementary
+  section: green_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - K
+  label:
+    sv: Arturval från karaktärshabitat
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: pollinator_bed
+  kind: supplementary
+  section: green_quality
+  factor: 1.0
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Pollintörsvänlig rabatt
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: shrubs_solitary
+  kind: supplementary
+  section: green_quality
+  factor: 0.4
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Buskar solitärer
+  unit_area_m2: 1.0
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: shrub_plantings_hedges
+  kind: supplementary
+  section: green_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Buskplanteringar och häckar
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: shrubs_berry
+  kind: supplementary
+  section: green_quality
+  factor: 0.6
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Bärande buskar
+  unit_area_m2: 1.0
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: shrubs_pollinator
+  kind: supplementary
+  section: green_quality
+  factor: 0.6
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Pollinatörsvänliga buskar
+  unit_area_m2: 1.0
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_existing
+  kind: supplementary
+  section: green_quality
+  factor: 3.2
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Befintliga träd
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 50 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23>0,F35*I35,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_existing_landscape
+  kind: supplementary
+  section: green_quality
+  factor: 3.8
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Befintliga träd inom landskapssamband
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 50 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23>0,F36*I36,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_new_small
+  kind: supplementary
+  section: green_quality
+  factor: 1.4
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Nya små träd (stam 16-20 cm)
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F70>0,F37*I37,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_new_medium
+  kind: supplementary
+  section: green_quality
+  factor: 1.9
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Nya mellanstora träd (stam 20-30 cm)
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F70>0,F38*I38,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_new_large
+  kind: supplementary
+  section: green_quality
+  factor: 2.8
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Nya stora träd (stam >30 cm)
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F70>0,F39*I39,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_character
+  kind: supplementary
+  section: green_quality
+  factor: 3.0
+  measure: count
+  groups:
+  - S
+  - K
+  label:
+    sv: Karaktärsträd
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F35+F70>0,F40*I40,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - tree_existing
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_berry
+  kind: supplementary
+  section: green_quality
+  factor: 0.6
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Bärande träd
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F70>0,F41*I41,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: tree_pollinator
+  kind: supplementary
+  section: green_quality
+  factor: 0.6
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Träd som gynnar pollinatörer
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H16+H18+H23+F70>0,F42*I42,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - bed_slab_600_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: vertical_green
+  kind: supplementary
+  section: green_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Vertikal grönska
+- id: nest_boxes
+  kind: supplementary
+  section: green_quality
+  factor: 0.8
+  measure: count
+  groups:
+  - S
+  - K
+  label:
+    sv: Holkar
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 5 m2 per element in the area column, but scores count x factor (=F46*I46). Verdiq reproduces the sheet; question sent to SGBC.
+- id: insect_hotels
+  kind: supplementary
+  section: green_quality
+  factor: 0.8
+  measure: count
+  groups:
+  - S
+  - K
+  label:
+    sv: Insektshotell
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 5 m2 per element in the area column, but scores count x factor (=F47*I47). Verdiq reproduces the sheet; question sent to SGBC.
+- id: fauna_depots
+  kind: supplementary
+  section: green_quality
+  factor: 0.8
+  measure: area
+  groups:
+  - S
+  - K
+  label:
+    sv: Faunadepåer
+- id: sand_beds
+  kind: supplementary
+  section: green_quality
+  factor: 0.8
+  measure: area
+  groups:
+  - S
+  - K
+  label:
+    sv: Sandbäddar
+- id: cultivation
+  kind: supplementary
+  section: green_quality
+  factor: 0.7
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Odlingsytor
+- id: biotope_balconies
+  kind: supplementary
+  section: green_quality
+  factor: 0.3
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Biotopbalkonger
+- id: shade_trees
+  kind: supplementary
+  section: green_quality
+  factor: 0.4
+  measure: count
+  groups:
+  - R
+  - K
+  label:
+    sv: Skuggivande träd
+  unit_area_m2: 1.0
+  note: SGBC's sheet shows 25 m2 per element in the area column, but scores count x factor (=IF(H13+H14+H15+H18+H23+F70>0,F53*I53,0)). Verdiq reproduces the sheet; question sent to SGBC.
+  constraints:
+  - type: requires_any
+    of:
+    - natural_ground_preserved
+    - bed_unbuilt
+    - bed_slab_800
+    - roof_400
+    - balcony_bed
+    - trees_structural_soil
+    severity: warning
+    text: Räknas bara tillsammans med en planteringsyta som kvaliteten kräver
+- id: shade_pergolas
+  kind: supplementary
+  section: green_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - R
+  - K
+  label:
+    sv: Skuggivande pergolor
+- id: multilayer_vegetation
+  kind: supplementary
+  section: green_quality
+  factor: 0.1
+  measure: area
+  groups:
+  - R
+  label:
+    sv: Flerskiktad växtlighet
+- id: sealed
+  kind: base
+  section: water_base
+  factor: 0.0
+  measure: area
+  groups: []
+  label:
+    sv: Täta hårdgjorda ytor (takytor utan vegetation, asfalt, betong)
+- id: paving_semi_open
+  kind: base
+  section: water_base
+  factor: 0.3
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Halvöppna hårdgjorda ytor (ex. grus, sand, singel, öppen asfalt)
+- id: paving_open
+  kind: base
+  section: water_base
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Öppna hårdgjorda ytor (ex. gräsarmerad betong, natursten)
+- id: paving_jointed
+  kind: base
+  section: water_base
+  factor: 0.1
+  measure: area
+  groups:
+  - R
+  label:
+    sv: Hårdgjorda ytor med fogar
+- id: hard_drained_to_vegetation
+  kind: base
+  section: water_base
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Avvattnade hårdgjorda ytor till vegetationsytor
+- id: roof_drained_to_vegetation
+  kind: base
+  section: water_base
+  factor: 0.8
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Avvattnade gröna tak till vegetationsytor
+- id: hard_drained_to_rain_garden
+  kind: base
+  section: water_base
+  factor: 0.7
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Avvattnade hårdgjorda ytor till regnträdgård/dike
+- id: roof_drained_to_rain_garden
+  kind: base
+  section: water_base
+  factor: 0.8
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Avattnade gröna tak till regnträdgård
+- id: stormwater_retention_storage
+  kind: base
+  section: water_base
+  factor: 0.1
+  measure: area
+  groups: []
+  label:
+    sv: Uppsamling och fördröjning av dagvatten (ex. fördröjningsmagasin, dagvattentunna)
+- id: water_ponds
+  kind: base
+  section: water_base
+  factor: 1.0
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Vattenytor i dammar, bäckar och diken
+- id: water_permanent
+  kind: supplementary
+  section: water_quality
+  factor: 4.0
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Biologiskt tillgängliga permanenta vattenytor
+- id: water_temporary
+  kind: supplementary
+  section: water_quality
+  factor: 2.0
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Vegetationsytor med tillfälligt kvardröjande vatten
+- id: stormwater_to_ponds
+  kind: supplementary
+  section: water_quality
+  factor: 0.2
+  measure: area
+  groups:
+  - S
+  - R
+  label:
+    sv: Dagvatten förs från hårdgjorda ytor till dammar och fuktstråk
+- id: trees_structural_soil
+  kind: supplementary
+  section: water_quality
+  factor: 0.8
+  measure: count
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Dagvattenhanterande träd i hårdgjord yta (träd i skelettjord)
+  unit_area_m2: 1.0
+- id: water_mirror
+  kind: supplementary
+  section: water_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - K
+  label:
+    sv: Vattenspeglar
+- id: fountains
+  kind: supplementary
+  section: water_quality
+  factor: 1.0
+  measure: count
+  groups:
+  - R
+  - K
+  label:
+    sv: Fontäner, cirkulationsanläggning eller liknande
+  unit_area_m2: 1.0
+- id: water_storage_pond
+  kind: supplementary
+  section: water_quality
+  factor: 0.5
+  measure: area
+  groups:
+  - S
+  - R
+  - K
+  label:
+    sv: Vattensamlingar i damm eller liknande
+- id: rainwater_irrigation
+  kind: supplementary
+  section: water_quality
+  factor: 0.1
+  measure: area
+  groups:
+  - R
+  label:
+    sv: Uppsamling av regnvatten för bevattning
+- id: stormwater_to_tanks
+  kind: supplementary
+  section: water_quality
+  factor: 0.1
+  measure: area
+  groups:
+  - R
+  label:
+    sv: Dagvatten förs från hårdgjorda ytor till magasin

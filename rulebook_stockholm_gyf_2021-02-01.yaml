@@ -1,0 +1,131 @@
+# Stockholm stad - GYF Grönytefaktor för kvartersmark, version 2021-02-01
+# Factor values and group flags transcribed from:
+#   - "GYF - Grönytefaktor för kvartersmark 2021-02-01" (Exploateringskontoret), pp. 22-34, 40-41
+#   - Filled city template "Parkstråket område 1" (Dnr 2020-07393, 2022) for group flags per row
+meta:
+  id: se-stockholm-gyf-kvartersmark
+  name: {sv: "GYF - Grönytefaktor för kvartersmark", en: "Green area factor for block land"}
+  country: SE
+  municipality: Stockholm
+  scheme: GYF
+  version: "2021-02-01"
+  effective_from: 2021-02-01
+  status: draft          # score verified against 2 city examples; balancing not yet (see balancing.status)
+  supersedes: "2015-06-17"
+  crs: "EPSG:3006"
+  languages: [sv, en]
+
+sources:
+  - title: "GYF - Grönytefaktor för kvartersmark (2021-02-01)"
+    url: "https://tillstand.stockholm/globalassets/foretag-och-organisationer/tillstand-och-regler/tillstand-regler-och-tillsyn/lokal-och-fastigheter/handbocker-och-riktlinjer-vid-byggnation-i-stockholm/gyf-for-kvartersmark.pdf"
+    pages: "16-34, 40-41"
+    retrieved: 2026-11-07
+  - title: "GYF-beräkning Parkstråket område 1 (filled city template)"
+    note: "Stockholms stadsbyggnadskontor, Dnr 2020-07393, inkom 2022-12-06"
+    retrieved: 2026-11-07
+
+score:
+  type: weighted_area_ratio       # sum(quantity_m2 * factor) / plot_area
+  rounding: 2
+
+targets:
+  type: lookup
+  by: built_share_pct             # share of plot that is built over
+  table:
+    - {lt: 50, target: 1.0, balancing_min_share: 0.60}
+    - {gte: 50, lte: 70, target: 0.6, balancing_min_share: 0.60}
+    - {gt: 70, target: 0.4, balancing_min_share: 0.50}
+  variants:
+    school_preschool: {balancing_min_share: 0.50, note: "Function areas are added to the built area when the requirement is set"}
+  allow_project_override: true    # city issues a project-specific 'GYF-underlag'
+
+balancing:
+  method: est_matrix              # counts individual ecosystem services per factor
+  status: unverified              # the factor -> service matrix lives only in the city's Excel template
+  rule: "Each group must reach at least balancing_min_share of the possible number of ecosystem services"
+  groups:
+    - {id: S, name: {sv: Stödjande ekosystemtjänster, en: Supporting services}, max_count: 47}
+    - {id: K, name: {sv: Kulturella ekosystemtjänster, en: Cultural services}, max_count: 45}
+    - {id: R, name: {sv: Reglerande ekosystemtjänster, en: Regulating services}, max_count: 41}
+  est_matrix: TBD                 # request the 'tilldelad beräkningsmall' from Exploateringskontoret
+  fallback: group_flags           # engine reports an indicative share from the S/K/R flags below
+
+spatial:
+  ground_partition: [natural_ground_preserved, bed_unbuilt, bed_slab_800, bed_slab_600_800, bed_slab_200_600,
+                     water_ponds, paving_open, paving_semi_open, paving_jointed, sealed]
+  roof: [roof_600, roof_300_600, roof_120_300, roof_50_120]
+  overlays_on_base: true
+  planting_qualities: [field_diversity, habitat_species, butterfly_bed, flower_display, multilayer_vegetation, roof_diversity_120]
+  within_rules:
+  - factors: [tree_new_large, tree_new_medium, tree_new_small, tree_character, tree_berry, fruit_trees, shade_trees]
+    within: [natural_ground_preserved, bed_unbuilt, bed_slab_800]
+    severity: warning
+    source: city_rule
+    text: "Nya träd ska placeras i växtbädd med minst 800 mm djup (eller ej underbyggd mark)"
+
+factors:
+  # ---------- Delfaktorer för grönska (base) ----------
+  - {id: natural_ground_preserved, kind: base, section: green_base, factor: 1.6, measure: area, groups: [S, K, R], label: {sv: "Bevarad naturmark", en: "Preserved natural ground"}}
+  - {id: bed_unbuilt, kind: base, section: green_base, factor: 1.6, measure: area, groups: [S, R], label: {sv: "Ej underbyggd växtbädd", en: "Planting bed, not over structure"}}
+  - {id: bed_slab_800, kind: base, section: green_base, factor: 1.5, measure: area, groups: [S, R], label: {sv: "Växtbädd på bjälklag >800 mm djup", en: "Planting bed on slab, >800 mm"}}
+  - {id: bed_slab_600_800, kind: base, section: green_base, factor: 0.4, measure: area, groups: [S, R], label: {sv: "Växtbädd på bjälklag 600-800 mm djup", en: "Planting bed on slab, 600-800 mm"}}
+  - {id: bed_slab_200_600, kind: base, section: green_base, factor: 0.2, measure: area, groups: [S, R], label: {sv: "Växtbädd på bjälklag 200-600 mm djup", en: "Planting bed on slab, 200-600 mm"}}
+  - {id: roof_600, kind: base, section: green_base, factor: 1.0, measure: area, groups: [S, K, R], label: {sv: "Grönt tak med >600 mm djup växtbädd", en: "Green roof, >600 mm"}}
+  - {id: roof_300_600, kind: base, section: green_base, factor: 0.4, measure: area, groups: [S, K, R], label: {sv: "Grönt tak med 300-600 mm djup växtbädd", en: "Green roof, 300-600 mm"}}
+  - {id: roof_120_300, kind: base, section: green_base, factor: 0.3, measure: area, groups: [S, K, R], label: {sv: "Grönt tak med 120-300 mm djup växtbädd", en: "Green roof, 120-300 mm"}}
+  - {id: roof_50_120, kind: base, section: green_base, factor: 0.1, measure: area, groups: [K, R], label: {sv: "Grönt tak med 50-120 mm djup växtbädd", en: "Green roof, 50-120 mm"}}
+  - {id: wall_substrate, kind: base, section: green_base, factor: 0.7, measure: area, groups: [K, R], label: {sv: "Gröna väggar med växtsubstrat", en: "Green wall with substrate"}}
+  - {id: balcony_bed, kind: base, section: green_base, factor: 0.3, measure: area, groups: [K], label: {sv: "Växtbädd balkonger", en: "Balcony planting bed"}}
+
+  # ---------- Tilläggsfaktorer för grönska (supplementary) ----------
+  - {id: field_diversity, kind: supplementary, section: green_field, factor: 0.5, measure: area, groups: [S, K, R], label: {sv: "Diversitet i fältskiktet", en: "Field-layer diversity (30+ species)"}}
+  - {id: roof_diversity_120, kind: supplementary, section: green_field, factor: 0.3, measure: area, groups: [S, K, R], label: {sv: "Diversitet på gröna tak >120 mm", en: "Green-roof diversity, >120 mm"}}
+  - {id: habitat_species, kind: supplementary, section: green_field, factor: 0.5, measure: area, groups: [S, K], label: {sv: "Arturval från karaktärshabitat", en: "Species from character habitat"}}
+  - {id: butterfly_bed, kind: supplementary, section: green_field, factor: 1.0, measure: area, groups: [S, K, R], label: {sv: "Fjärilsrabatt", en: "Butterfly bed"},
+     constraints: [{type: min_area, value: 5, severity: warning, text: "Ytan ska vara minst 5 kvm"}],
+     excludes: [field_diversity]}
+  - {id: shrubs, kind: supplementary, section: green_shrub, factor: 0.3, measure: area, groups: [S, K, R], label: {sv: "Buskar generellt", en: "Shrubs, general"}, note: "Solitary shrubs >2.5 m count as 4 m2 each"}
+  - {id: shrubs_berry, kind: supplementary, section: green_shrub, factor: 0.4, measure: area, groups: [S, K, R], label: {sv: "Bärande buskar", en: "Berry-bearing shrubs"}}
+  - {id: tree_existing, kind: supplementary, section: green_tree, factor: 3.2, measure: count, unit_area_m2: 50, groups: [S, K, R], label: {sv: "Befintligt träd", en: "Existing tree (>20 cm)"}}
+  - {id: tree_new_large, kind: supplementary, section: green_tree, factor: 2.8, measure: count, unit_area_m2: 25, groups: [S, K, R], label: {sv: "Nya stora träd (stam >30 cm)", en: "New large tree (girth >30 cm)"}}
+  - {id: tree_new_medium, kind: supplementary, section: green_tree, factor: 1.9, measure: count, unit_area_m2: 25, groups: [S, K, R], label: {sv: "Nya mellanstora träd (stam 20-30 cm)", en: "New medium tree (girth 20-30 cm)"}}
+  - {id: tree_new_small, kind: supplementary, section: green_tree, factor: 1.4, measure: count, unit_area_m2: 25, groups: [S, K, R], label: {sv: "Nya små träd (stam 16-20 cm)", en: "New small tree (girth 16-20 cm)"}}
+  - {id: tree_character, kind: supplementary, section: green_tree, factor: 3.0, measure: count, unit_area_m2: 25, groups: [S, K], label: {sv: "Karaktärsträd", en: "Character tree"}}
+  - {id: tree_berry, kind: supplementary, section: green_tree, factor: 0.4, measure: count, unit_area_m2: 25, groups: [S, K, R], label: {sv: "Bärande träd", en: "Berry-bearing tree"}}
+  - {id: vertical_green, kind: supplementary, section: green_vertical, factor: 0.5, measure: area, groups: [S, K, R], label: {sv: "Grönska på väggar, murar, spaljéer, pergola m.m.", en: "Climbers on walls, trellises, pergolas (5-year cover)"}}
+  - {id: nest_boxes, kind: supplementary, section: green_elements, factor: 1.0, measure: count, unit_area_m2: 5, groups: [S, K], label: {sv: "Holkar, bikupor, faunadepåer m.m.", en: "Nest boxes, beehives, fauna depots"},
+     constraints: [{type: max_count, value: 10, severity: error, text: "Max 10 element får räknas per gård"}]}
+  - {id: habitat_measures, kind: supplementary, section: green_elements, factor: 2.0, measure: area, groups: [S, K], label: {sv: "Habitatstärkande livsmiljöer", en: "Habitat-enhancing measures"}, note: "Amphibian guide strips: length x 2.0"}
+  - {id: social_activity, kind: supplementary, section: green_recreation, factor: 1.2, measure: area, groups: [K], label: {sv: "Ytor för social aktivitet (lekyta på skola/förskola)", en: "Lawn for social activity"},
+     constraints: [{type: min_area, value: 75, severity: warning, text: "Användbar gräsyta ska vara större än 75 kvm"}]}
+  - {id: cultivation, kind: supplementary, section: green_recreation, factor: 0.7, measure: area, groups: [S, K, R], label: {sv: "Odlingsytor", en: "Cultivation areas (bed >=300 mm)"}}
+  - {id: cultivation_balcony_roof, kind: supplementary, section: green_recreation, factor: 0.5, measure: area, groups: [S, K, R], label: {sv: "Balkonger, takterrasser och växthus för odling", en: "Balconies, roof terraces, greenhouses for growing"}}
+  - {id: shared_roof_terrace, kind: supplementary, section: green_recreation, factor: 0.2, measure: area, groups: [K], label: {sv: "Gemensamma takterrasser", en: "Shared roof terraces"},
+     constraints: [{type: requires_total, of: [roof_600, roof_300_600, roof_120_300], min_value: 100, severity: warning, text: "Kräver minst 100 kvm gröna tak med >120 mm växtbädd"}]}
+  - {id: visible_green_roof, kind: supplementary, section: green_recreation, factor: 0.05, measure: area, groups: [K], label: {sv: "Synliga gröna tak", en: "Visible green roofs"}}
+  - {id: front_yard_green, kind: supplementary, section: green_recreation, factor: 0.3, measure: area, groups: [K], label: {sv: "Grönskande förgårdsmark", en: "Green front-yard land (trees 25 m2 each)"}}
+  - {id: pergola, kind: supplementary, section: green_recreation, factor: 0.3, measure: area, groups: [K, R], label: {sv: "Pergolor o.dyl.", en: "Pergolas (ground projection)"}}
+  - {id: flower_display, kind: supplementary, section: green_recreation, factor: 0.2, measure: area, groups: [K, R], label: {sv: "Blomsterprakt i fältskiktet", en: "Flowering perennials"}}
+  - {id: shrubs_edible, kind: supplementary, section: green_recreation, factor: 0.2, measure: area, groups: [S, K], label: {sv: "Buskar med ätliga bär och frukter", en: "Shrubs with edible berries"}}
+  - {id: fruit_trees, kind: supplementary, section: green_recreation, factor: 0.2, measure: count, unit_area_m2: 25, groups: [S, K], label: {sv: "Fruktträd och blommande träd", en: "Fruit and flowering trees"}}
+  - {id: shade_trees, kind: supplementary, section: green_climate, factor: 0.4, measure: count, unit_area_m2: 25, groups: [K, R], label: {sv: "Träd placerade så att de ger lövskugga", en: "Trees placed to give leaf shade"}}
+  - {id: shade_pergola, kind: supplementary, section: green_climate, factor: 0.5, measure: area, groups: [K, R], label: {sv: "Pergolor, lövgångar mm som ger lövskugga", en: "Pergolas giving leaf shade"}}
+  - {id: multilayer_vegetation, kind: supplementary, section: green_climate, factor: 0.1, measure: area, groups: [R], label: {sv: "Flerskiktad växtlighet", en: "Multi-layer vegetation"}}
+
+  # ---------- Delfaktorer för vatten (base) ----------
+  - {id: water_ponds, kind: base, section: water_base, factor: 1.0, measure: area, groups: [S, K, R], label: {sv: "Vattenytor i dammar, bäckar och diken", en: "Ponds, streams, ditches"}}
+  - {id: paving_open, kind: base, section: water_base, factor: 0.3, measure: area, groups: [S, R], label: {sv: "Öppna hårdgjorda ytor", en: "Open paving (grass-reinforced)"}}
+  - {id: paving_semi_open, kind: base, section: water_base, factor: 0.2, measure: area, groups: [S, R], label: {sv: "Halvöppna hårdgjorda ytor", en: "Semi-open paving (gravel, open asphalt)"}}
+  - {id: paving_jointed, kind: base, section: water_base, factor: 0.05, measure: area, groups: [S, R], label: {sv: "Hårdgjorda ytor med fogar", en: "Jointed paving"}}
+  - {id: sealed, kind: base, section: water_base, factor: 0.0, measure: area, groups: [], label: {sv: "Täta ytor", en: "Sealed surfaces"}}
+
+  # ---------- Tilläggsfaktorer för vatten (supplementary) ----------
+  - {id: water_permanent, kind: supplementary, section: water_bio, factor: 4.0, measure: area, groups: [S, K, R], label: {sv: "Biologiskt tillgängliga permanenta vattenytor", en: "Permanent, biologically accessible water"}}
+  - {id: water_temporary, kind: supplementary, section: water_bio, factor: 2.0, measure: area, groups: [S, K, R], label: {sv: "Vegetationsytor med tillfälligt kvardröjande vatten", en: "Vegetation with temporary standing water"}}
+  - {id: retention_ponds, kind: supplementary, section: water_bio, factor: 0.2, measure: area, groups: [S, R], label: {sv: "Förd. av dagvatten från hårdgjorda ytor i dammar och fuktstråk", en: "Runoff retained in ponds/swales (drained area)"}}
+  - {id: runoff_to_beds, kind: supplementary, section: water_bio, factor: 0.2, measure: area, groups: [S, R], label: {sv: "Avvattning av hårdgjorda ytor till växtbäddar", en: "Hard surfaces drained to planting beds"}}
+  - {id: water_mirror, kind: supplementary, section: water_recreation, factor: 0.5, measure: area, groups: [K], label: {sv: "Vattenspeglar", en: "Reflecting pools"}}
+  - {id: fountains, kind: supplementary, section: water_recreation, factor: 1.0, measure: count, unit_area_m2: 50, groups: [K, R], label: {sv: "Fontäner, cirkulationsanläggning o.dyl.", en: "Fountains, circulating water"}}
+  - {id: water_storage_pond, kind: supplementary, section: water_climate, factor: 0.5, measure: area, groups: [R], label: {sv: "Vattensamlingar i damm o.dyl.", en: "Water held in ponds through dry periods"}}
+  - {id: rainwater_irrigation, kind: supplementary, section: water_climate, factor: 0.1, measure: area, groups: [R], label: {sv: "Uppsamling av regnvatten för bevattning", en: "Rainwater harvesting for irrigation (drained area)"}}
+  - {id: retention_tank, kind: supplementary, section: water_climate, factor: 0.1, measure: area, groups: [R], label: {sv: "Förd. av dagvatten från hårdgjorda ytor i magasin", en: "Runoff retained in tanks (drained area)"}}

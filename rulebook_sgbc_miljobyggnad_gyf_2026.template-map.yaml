@@ -1,0 +1,73 @@
+sheet: Indata o resultat GYF-beräkning
+plot_area_cell: C84
+built_area_cell: C87
+header:
+  date: C6
+  project: E6
+  case: C8
+  author: E8
+inputs:
+  natural_ground_preserved: G13
+  bed_unbuilt: G14
+  bed_slab_800: G15
+  bed_slab_600_800: G16
+  bed_slab_200_600: G17
+  roof_400: G18
+  roof_250_400: G19
+  roof_120_250: G20
+  roof_50_120: G21
+  wall_substrate: G22
+  balcony_bed: G23
+  field_diversity: G25
+  roof_diversity_90: G26
+  habitat_species: G27
+  pollinator_bed: G28
+  shrubs_solitary: F30
+  shrub_plantings_hedges: G31
+  shrubs_berry: F32
+  shrubs_pollinator: F33
+  tree_existing: F35
+  tree_existing_landscape: F36
+  tree_new_small: F37
+  tree_new_medium: F38
+  tree_new_large: F39
+  tree_character: F40
+  tree_berry: F41
+  tree_pollinator: F42
+  vertical_green: G44
+  nest_boxes: F46
+  insect_hotels: F47
+  fauna_depots: G48
+  sand_beds: G49
+  cultivation: G50
+  biotope_balconies: G51
+  shade_trees: F53
+  shade_pergolas: G54
+  multilayer_vegetation: G55
+  sealed: G56
+  paving_semi_open: G57
+  paving_open: G58
+  paving_jointed: G59
+  hard_drained_to_vegetation: G60
+  roof_drained_to_vegetation: G61
+  hard_drained_to_rain_garden: G62
+  roof_drained_to_rain_garden: G63
+  stormwater_retention_storage: G64
+  water_ponds: G65
+  water_permanent: G67
+  water_temporary: G68
+  stormwater_to_ponds: G69
+  trees_structural_soil: F70
+  water_mirror: G72
+  fountains: F73
+  water_storage_pond: G74
+  rainwater_irrigation: G75
+  stormwater_to_tanks: G76
+outputs:
+  total_points: H87
+  score: H90
+  target: C90
+  balancing_achieved:
+    S: I107
+    R: I108
+    K: I109
