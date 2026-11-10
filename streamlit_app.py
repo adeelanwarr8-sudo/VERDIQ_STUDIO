@@ -22,15 +22,19 @@ from verdiq_ui import findings_list, get_template_map, save_upload, setup  # noq
 
 CURRENT = "current"
 T = {
-    "en": {"scenario": "Scenario", "current": "Current design", "improved": "Improved design (Verdiq interventions)",
-           "improved_n": "Improved design {n} (Verdiq interventions)", "variant": "Variant {n}",
-           "revised": "Revised design {n}",
-           "save": "Save as improved design", "confirm": "Confirm and perform the analysis",
+    "en": {"scenario": "Scenario", "current": "Current design", "improved": "Verdiq improvement proposal",
+           "improved_n": "Verdiq improvement proposal {n}", "variant": "Variant {n}",
+           "revised": "Your improved design", "revised_n": "Your improved design {n}",
+           "draft": "Your improved design (not saved)",
+           "save": "Show Verdiq's improvement proposal", "save_yours": "Save your improved design results",
+           "confirm": "Confirm and perform the analysis",
            "perform": "Perform the analysis", "duplicate": "Duplicate", "delete": "Delete"},
-    "sv": {"scenario": "Scenario", "current": "Nuvarande förslag", "improved": "Förbättrat förslag (Verdiqs åtgärder)",
-           "improved_n": "Förbättrat förslag {n} (Verdiqs åtgärder)", "variant": "Variant {n}",
-           "revised": "Reviderat förslag {n}",
-           "save": "Spara som förbättrat förslag", "confirm": "Bekräfta och utför analysen",
+    "sv": {"scenario": "Scenario", "current": "Nuvarande förslag", "improved": "Verdiqs förbättringsförslag",
+           "improved_n": "Verdiqs förbättringsförslag {n}", "variant": "Variant {n}",
+           "revised": "Ditt förbättrade förslag", "revised_n": "Ditt förbättrade förslag {n}",
+           "draft": "Ditt förbättrade förslag (ej sparat)",
+           "save": "Visa Verdiqs förbättringsförslag", "save_yours": "Spara resultatet för ditt förbättrade förslag",
+           "confirm": "Bekräfta och utför analysen",
            "perform": "Utför analysen", "duplicate": "Duplicera", "delete": "Ta bort"},
 }
 
@@ -96,7 +100,7 @@ def _keep_valid(rb):
 ctx = setup("Verdiq Studio", "Design to the green area factor, city by city", on_rulebook_change=_keep_valid)
 rb, sha, lang, entry, muni, calc_kw, lab = ctx.rb, ctx.sha, ctx.lang, ctx.entry, ctx.muni, ctx.calc_kw, ctx.lab
 tr = dict(T["en"], **{k: v for k, v in T.get(lang, T["en"]).items()
-                      if k in ("scenario", "current", "improved", "improved_n", "variant", "revised")})   # names follow the language
+                      if k in ("scenario", "current", "improved", "improved_n", "variant", "revised", "revised_n", "draft")})   # names follow the language
 st.markdown(CSS, unsafe_allow_html=True)
 
 
@@ -110,7 +114,10 @@ def disp(key: str) -> str:
     if m.get("kind") == "variant":
         return tr["variant"].format(n=m.get("n", 1)) if m.get("n") else key
     if m.get("kind") == "revised":
-        return tr["revised"].format(n=m.get("n", 1))
+        if not m.get("saved"):
+            return tr["draft"]
+        n = m.get("n", 1)
+        return tr["revised"] if n == 1 else tr["revised_n"].format(n=n)
     return key
 
 
@@ -144,11 +151,13 @@ def hero():
 def stepper():
     m = ss.meta[CURRENT]
     has_plan, analysed = CURRENT in ss.plans, m["analysed"]
-    has_improved = any(v.get("kind") in ("improved", "revised") for v in ss.meta.values())
+    has_improved = any(v.get("kind") == "improved" or (v.get("kind") == "revised" and v.get("saved"))
+                       for v in ss.meta.values())
     steps = [("1 · Import plan", "DXF uploaded" if has_plan else "Upload a DXF", has_plan),
              ("2 · Confirm quantities", "Confirmed" if analysed else "Check what Verdiq detected", analysed),
              ("3 · Results and advice", "Result ready" if analysed else "After confirmation", analysed),
-             ("4 · Compare", "Design to compare saved" if has_improved else "Save or upload an improved design", has_improved)]
+             ("4 · Compare", "Ready to compare" if has_improved else "Verdiq's proposal or your own improved design",
+              has_improved)]
     now = next((i for i, s in enumerate(steps) if not s[2]), None)
     html = "".join(f'<div class="vq-step {"done" if done else ("now" if i == now else "")}"><b>{"✓ " if done else ""}{t}</b>{d}</div>'
                    for i, (t, d, done) in enumerate(steps))
@@ -318,22 +327,24 @@ def designer():
                     mode = "replace"
                     if ss.meta[CURRENT]["analysed"] and CURRENT in ss.plans:
                         mode = st.radio("What is this drawing?", ["revised", "replace"], format_func={
-                            "revised": "A revised design: keep the current design and compare",
+                            "revised": "Your improved design: keep the current design and evaluate this one",
                             "replace": "A replacement for the current design: start over"}.get)
                     if st.button(tr["confirm"], type="primary", width="stretch", disabled=not q):
                         plan = {"stats": stats, "mapping": mapping, "plot": plot}
                         area = round(plot.area, 1) if plot is not None else pa(CURRENT)
                         if mode == "revised":
-                            n = 1 + sum(1 for v in ss.meta.values() if v.get("kind") == "revised")
-                            key = f"revised-{n}"
+                            draft = next((k for k, v in ss.meta.items() if v.get("kind") == "revised" and not v.get("saved")),
+                                         None)   # a new upload replaces an unsaved one
+                            n = 1 + sum(1 for v in ss.meta.values() if v.get("kind") == "revised" and v.get("saved"))
+                            key = draft or f"revised-{n}"
                             ss.options[key] = q
                             ss.meta[key] = {"kind": "revised", "n": n, "steps": [], "analysed": True, "edited": False,
-                                            "plot_area": area}
+                                            "plot_area": area, "saved": False}
                             ss.plans[key] = plan
                             ss["_pa_set"] = {key: area}
                             ss.active = key
-                            ss.flash = (f"Analysis done for **{disp(key)}**. See its result in **3 · Results and advice** and "
-                                        "compare it with the current design in **4 · Compare designs**.")
+                            ss.flash = ("Analysis done for your improved design. Check the result in **3 · Results and advice** "
+                                        f"and click **{tr['save_yours']}** to compare it with the current design.")
                         else:
                             stale = [k for k in ss.meta if k != CURRENT]
                             for k in stale:
@@ -402,7 +413,26 @@ def designer():
                     st.subheader("Plan")
                     plan_fig(ss.active)
 
-            if r.passed is False and r.target is not None:
+            if meta.get("kind") == "revised":
+                with st.container(border=True):
+                    st.subheader("Your improved design")
+                    base = run(CURRENT) if ss.meta[CURRENT]["analysed"] else None
+                    if base is not None:
+                        d, dp = r.score_unrounded - base.score_unrounded, r.total_points - base.total_points
+                        st.markdown(f'<span class="vq-delta {"up" if d >= 0 else "down"}">{d:+.2f} GYF · {dp:+,.0f} eco-m²</span>'
+                                    f' compared with {disp(CURRENT)}'.replace(",", " "), unsafe_allow_html=True)
+                    if meta.get("saved"):
+                        st.success("Saved. It is shown next to the current design in **4 · Compare designs**, in place of "
+                                   "Verdiq's proposal.")
+                    else:
+                        st.write("Save the result to compare your design with the current design. In **4 · Compare designs** "
+                                 "it replaces Verdiq's improvement proposal.")
+                        if st.button(tr["save_yours"], type="primary"):
+                            meta["saved"] = True
+                            ss.flash_res = (f"Saved as **{disp(ss.active)}**. Open **4 · Compare designs** to see it next to the "
+                                            "current design.")
+                            st.rerun()
+            elif r.passed is False and r.target is not None:
                 with st.container(border=True):
                     st.subheader("How to close the gap")
                     pkg = suggest_package(rb, inputs, pa(ss.active), calc_kw, lang=lang)
@@ -425,7 +455,8 @@ def designer():
                                                  "unit": s.unit, "from_factor_id": s.from_factor_id, "text": s.text}
                                                 for s in pkg.steps]}
                             ss.active = new
-                            ss.flash_res = f"Saved as **{disp(new)}**. See it next to the current design in **4 · Compare designs**."
+                            ss.flash_res = (f"**{disp(new)}** created. Open **4 · Compare designs** to see it next to the "
+                                            "current design.")
                             st.rerun()
                     if pkg.remaining_note:
                         st.info(pkg.remaining_note)
@@ -489,19 +520,24 @@ def designer():
     # ------------------------------------------------------------ 4 compare designs
     with tab_cmp:
         analysed = [k for k in ss.options if ss.meta.get(k, {}).get("analysed")]
-        if len(analysed) < 2:
-            st.info("Compare appears once there are two analysed scenarios: confirm the current design, then click "
-                    f"**{tr['save']}** in **3 · Results and advice**.")
-            return
-        revised = [k for k in analysed if ss.meta[k].get("kind") == "revised"]
-        if revised:      # the user's own drawings replace Verdiq's proposal in the comparison
-            pool = [k for k in analysed if ss.meta[k].get("kind") != "improved"]
-            default = [CURRENT, revised[-1]] if CURRENT in pool else [revised[-1]]
-            st.caption("Showing your own revised designs. Verdiq's improved design is still in the sidebar under "
-                       f"**{tr['scenario']}** if you want to look at it.")
+        kind = lambda k: ss.meta[k].get("kind")  # noqa: E731
+        yours = [k for k in analysed if kind(k) == "revised" and ss.meta[k].get("saved")]
+        proposals = [k for k in analysed if kind(k) == "improved"]
+        variants = [k for k in analysed if kind(k) == "variant"]
+        base = [CURRENT] if CURRENT in analysed else []
+        if yours:        # the user's own saved design replaces Verdiq's proposal in the comparison
+            pool, default = base + yours + variants, base + yours[-1:]
+            st.caption("Your improved design has replaced Verdiq's proposal here. The proposal is still in the sidebar "
+                       f"under **{tr['scenario']}**.")
+        elif proposals:
+            pool, default = base + proposals + variants, base + proposals[-1:]
         else:
-            pool = analysed
-            default = [CURRENT] + [k for k in analysed if k != CURRENT][-1:]
+            pool, default = base + variants, base + variants[-1:]
+        if len(pool) < 2:
+            st.info(f"Compare shows the current design next to Verdiq's improvement proposal (**{tr['save']}** in "
+                    "**3 · Results and advice**), or next to your own improved design once you have uploaded it and "
+                    f"clicked **{tr['save_yours']}**.")
+            return
         chosen = st.multiselect("Scenarios side by side (up to 3)", pool, default=default, format_func=disp,
                                 max_selections=3, key="cmp_" + "_".join(pool))
         if not chosen:
