@@ -42,7 +42,13 @@ CSS = """
 <style>
 :root { --vq-green:#2f7d4f; --vq-green-soft:#e8f3ec; --vq-red:#b42318; --vq-red-soft:#fdecea; --vq-ink:#1d2420;
         --vq-muted:#5b6b61; --vq-line:#dfe6e1; --vq-amber:#b54708; }
-.block-container { padding-top: 1.6rem; max-width: 1400px; }
+.block-container { padding-top: 0.7rem; max-width: 98%; padding-left: 1.6rem; padding-right: 1.6rem; }
+[data-testid="stSidebar"] { min-width: 310px; }
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.65rem; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 6px; flex-wrap: wrap; }
+[data-testid="stTabs"] [data-baseweb="tab"] { border: 1px solid #dfe6e1; border-radius: 9px; padding: 0.75rem 0.8rem; font-weight: 600; background: #fafcfb; flex-grow: 1; }
+[data-testid="stTabs"] [aria-selected="true"] { background: #e8f3ec; border-color: #2f7d4f; color: #185a38; }
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display: none; }
 .vq-hero { display:flex; align-items:center; gap:14px; padding:14px 18px; border-radius:14px;
            background:linear-gradient(120deg,#1f5c3a 0%,#2f7d4f 55%,#5fa87a 100%); color:white; margin-bottom:10px; }
 .vq-hero h1 { font-size:1.45rem; margin:0; color:white; letter-spacing:.2px; }
@@ -95,12 +101,15 @@ def _keep_valid(rb):
     ss.options = {k: {f: v for f, v in o.items() if f in valid} for k, o in ss.options.items()}
     ss.plan = None
     ss.plans = {}
+    # A changed rulebook invalidates all previous calculations and scenarios.
+    ss.meta = {CURRENT: {"kind": "current", "steps": [], "analysed": False, "edited": False}}
+    ss.options = {CURRENT: {}}
+    ss.active = CURRENT
 
 
 ctx = setup("Verdiq Studio", "Design to the green area factor, city by city", on_rulebook_change=_keep_valid)
 rb, sha, lang, entry, muni, calc_kw, lab = ctx.rb, ctx.sha, ctx.lang, ctx.entry, ctx.muni, ctx.calc_kw, ctx.lab
-tr = dict(T["en"], **{k: v for k, v in T.get(lang, T["en"]).items()
-                      if k in ("scenario", "current", "improved", "improved_n", "variant", "revised", "revised_n", "draft")})   # names follow the language
+tr = T["en"]  # English-only interface; localization will be added later
 st.markdown(CSS, unsafe_allow_html=True)
 
 
@@ -143,8 +152,8 @@ def run(key):
 # ---------------------------------------------------------------- visual building blocks
 def hero():
     st.markdown('<div class="vq-hero"><div class="vq-logo">🌿</div><div><h1>Verdiq Studio</h1>'
-                f'<p>Green area factor for {rb.meta.municipality} · {rb.meta.scheme} {rb.meta.version}: import the plan, '
-                'confirm the quantities, get the result and a package of improvements.</p></div></div>',
+                f'<p>Green Infrastructure Design &amp; GYF Assessment · {rb.meta.municipality} · '
+                f'{rb.meta.scheme} {rb.meta.version}</p></div></div>',
                 unsafe_allow_html=True)
 
 
@@ -247,14 +256,14 @@ def designer():
         names = list(ss.options)
         ss.active = st.selectbox(tr["scenario"], names, index=names.index(ss.active) if ss.active in names else 0,
                                  format_func=disp)
-        for k, v in ss.pop("_pa_set", {}).items():     # plot areas set by an import, applied before the widget exists
-            ss[f"pa_{k}"] = v
-        wkey = f"pa_{ss.active}"
-        if wkey not in ss:
-            ss[wkey] = pa(ss.active) or 2000.0
-        ss.meta[ss.active]["plot_area"] = st.number_input("Plot area (m²)", min_value=0.0, step=10.0, key=wkey)
+        # The plot area is configured above in the Project Setup sidebar.
+        # Imported plans update it on the next rerun, before the sidebar widget is rendered.
+        for k, v in ss.pop("_pa_set", {}).items():
+            ss.meta.setdefault(k, {})["plot_area"] = v
         if ss.active == CURRENT:
-            ss.plot_area = ss.meta[CURRENT]["plot_area"]
+            ss.meta[CURRENT]["plot_area"] = float(ss.plot_area)
+        elif not ss.meta[ss.active].get("plot_area"):
+            ss.meta[ss.active]["plot_area"] = float(ss.plot_area)
         c1, c2 = st.columns(2)
         if c1.button(tr["duplicate"], width="stretch"):
             n = 1 + sum(1 for v in ss.meta.values() if v.get("kind") == "variant")
@@ -272,99 +281,126 @@ def designer():
             st.rerun()
 
     hero()
-    stepper()
     inputs = ss.options[ss.active]
     meta = ss.meta[ss.active]
-    tab_plan, tab_qty, tab_res, tab_cmp = st.tabs(["1 · Import plan", "2 · Quantities", "3 · Results and advice",
-                                                    "4 · Compare designs"])
+    tab_plan, tab_qty, tab_res, tab_improve, tab_cmp, tab_reports = st.tabs([
+        "▣ Project Setup", "▤ Plan & Quantities", "▥ GYF Assessment",
+        "♧ Design Improvements", "◫ Compare Designs", "▤ Reports & Export"
+    ])
 
     # ------------------------------------------------------------ 1 import + confirmation
     with tab_plan:
-        st.write("Upload a DXF exported from AutoCAD, Rhino, Revit or Vectorworks. Closed polylines (including curves) and "
-                 "hatches (including holes) give areas; blocks, points and circles count as elements (trees, nest boxes). "
-                 "Units are read from the drawing (mm or m). Only what lies inside the plot boundary is counted, "
-                 "so legends and neighbouring plots are left out.")
-        if rb.cad_layers:
-            st.caption(f"{rb.meta.municipality} has a CAD layer standard ({rb.cad_layers.standard}); matching layers map automatically.")
-        up = st.file_uploader("DXF plan", type=["dxf"])
-        if up:
-            stats = read_layers(save_upload(up, ".dxf"))
-            auto = auto_mapping(rb, list(stats))
-            with st.expander("Layer mapping: change a factor here if Verdiq mapped a layer wrongly", expanded=False):
-                df = pd.DataFrame([{"Layer": n, "Area (m²)": round(s.area_m2, 1), "Elements": s.symbols, "Factor": auto.get(n, "")}
-                                   for n, s in sorted(stats.items())])
-                edited = st.data_editor(df, hide_index=True, width="stretch", disabled=["Layer", "Area (m²)", "Elements"],
-                                        column_config={"Factor": st.column_config.SelectboxColumn(
-                                            "Factor", options=[""] + [f.id for f in rb.factors],
-                                            help="Leave empty to ignore the layer")})
-            mapping = {r.Layer: r.Factor for r in edited.itertuples() if r.Factor}
-            plot = plot_geometry(rb, stats)
-            q = quantities(rb, stats, mapping, plot=plot)
-            findings = check_plan(rb, stats, mapping, plot)
-            problems = [f for f in findings if f.severity in ("error", "warning")]
-            c1, c2 = st.columns([3, 2])
-            with c1:
-                from verdiq_plan_figure import plan_figure
-                st.pyplot(plan_figure(rb, stats, mapping, plot, findings), width="stretch")
-            with c2:
-                with st.container(border=True):
-                    st.markdown("#### Verdiq has detected these quantities")
-                    st.write("Please check that they are correct before continuing. Nothing is calculated until you confirm.")
-                    st.markdown(f"- **Plot area:** {plot.area:,.1f} m² (from the plot boundary layer)".replace(",", " ")
-                                if plot is not None else "- **Plot area:** no boundary layer found: enter it in the sidebar")
-                    n_trees = sum(v for k, v in q.items() if rb.factor(k).measure == "count" and rb.factor(k).kind == "base")
-                    st.markdown(f"- **{len(mapping)} of {len(stats)} layers** mapped to **{len(q)} factors** · "
-                                f"{int(n_trees)} trees and other elements")
-                    if problems:
-                        st.markdown(f'<span class="vq-pill fail">{len(problems)} drawing problem(s): review before confirming</span>',
-                                    unsafe_allow_html=True)
-                        findings_list(findings)
-                    else:
-                        st.markdown('<span class="vq-pill pass">No drawing problems found</span>', unsafe_allow_html=True)
-                    qdf = pd.DataFrame([{"Factor": lab(k), "Quantity": f"{v:,.1f} m²".replace(",", " ")
-                                         if rb.factor(k).measure != "count" else f"{int(v)} st"} for k, v in q.items()])
-                    st.dataframe(qdf, hide_index=True, width="stretch", height=min(38 * (len(qdf) + 1), 360))
-                    mode = "replace"
-                    if ss.meta[CURRENT]["analysed"] and CURRENT in ss.plans:
-                        mode = st.radio("What is this drawing?", ["revised", "replace"], format_func={
-                            "revised": "Your improved design: keep the current design and evaluate this one",
-                            "replace": "A replacement for the current design: start over"}.get)
-                    if st.button(tr["confirm"], type="primary", width="stretch", disabled=not q):
-                        plan = {"stats": stats, "mapping": mapping, "plot": plot}
-                        area = round(plot.area, 1) if plot is not None else pa(CURRENT)
-                        if mode == "revised":
-                            draft = next((k for k, v in ss.meta.items() if v.get("kind") == "revised" and not v.get("saved")),
-                                         None)   # a new upload replaces an unsaved one
-                            n = 1 + sum(1 for v in ss.meta.values() if v.get("kind") == "revised" and v.get("saved"))
-                            key = draft or f"revised-{n}"
-                            ss.options[key] = q
-                            ss.meta[key] = {"kind": "revised", "n": n, "steps": [], "analysed": True, "edited": False,
-                                            "plot_area": area, "saved": False}
-                            ss.plans[key] = plan
-                            ss["_pa_set"] = {key: area}
-                            ss.active = key
-                            ss.flash = ("Analysis done for your improved design. Check the result in **3 · Results and advice** "
-                                        f"and click **{tr['save_yours']}** to compare it with the current design.")
+        st.markdown("### Assessment Method")
+        method = st.radio("Choose how you want to provide quantities", ["DXF Plan Analysis", "Manual GYF Calculation"],
+                          horizontal=True, key="vq_assessment_method")
+        if method == "Manual GYF Calculation":
+            st.info("Enter quantities using the selected municipal rulebook. Geometry cannot be verified without a DXF plan.")
+            md = pd.DataFrame([{"id": f.id, "Section": f.section, "Factor": f.label.text("en"),
+                                "Unit": "count" if f.measure == "count" else "m²", "Weight": f.factor,
+                                "Quantity": float(ss.options[CURRENT].get(f.id, 0) or 0)} for f in rb.factors])
+            manual_edit = st.data_editor(md, hide_index=True, width="stretch", height=520,
+                                         key=f"manual_qty_{rb.key}",
+                                         column_order=["Section", "Factor", "Unit", "Weight", "Quantity"],
+                                         disabled=["Section", "Factor", "Unit", "Weight"],
+                                         column_config={"Quantity": st.column_config.NumberColumn(min_value=0.0, step=1.0)})
+            if st.button("Confirm manual quantities and calculate GYF", type="primary"):
+                ss.options = {CURRENT: {r.id: float(r.Quantity) for r in manual_edit.itertuples() if r.Quantity}}
+                ss.meta = {CURRENT: {"kind": "current", "steps": [], "analysed": False, "edited": False}}
+                ss.plans = {}
+                ss.meta[CURRENT].update({"kind": "current", "steps": [], "analysed": True,
+                                          "edited": True, "plot_area": float(ss.plot_area)})
+                ss.plans.pop(CURRENT, None)
+                ss.plan = None
+                ss.active = CURRENT
+                st.success("Manual quantities confirmed. Open GYF Assessment to see the result.")
+                st.rerun()
+        else:
+            st.markdown("### DXF Plan Workspace")
+            st.caption("Upload a DXF from AutoCAD, Rhino, Revit or Vectorworks. Closed polylines and hatches supply "
+                       "areas; symbols supply counts. Only features inside a detected plot boundary are counted.")
+            if rb.cad_layers:
+                st.caption(f"CAD standard: {rb.cad_layers.standard}. Recognized layers are mapped automatically.")
+            up = st.file_uploader("DXF plan", type=["dxf"])
+            if up:
+                stats = read_layers(save_upload(up, ".dxf"))
+                auto = auto_mapping(rb, list(stats))
+                with st.expander("Layer mapping: change a factor here if Verdiq mapped a layer wrongly", expanded=False):
+                    df = pd.DataFrame([{"Layer": n, "Area (m²)": round(s.area_m2, 1), "Elements": s.symbols, "Factor": auto.get(n, "")}
+                                       for n, s in sorted(stats.items())])
+                    edited = st.data_editor(df, hide_index=True, width="stretch", disabled=["Layer", "Area (m²)", "Elements"],
+                                            column_config={"Factor": st.column_config.SelectboxColumn(
+                                                "Factor", options=[""] + [f.id for f in rb.factors],
+                                                help="Leave empty to ignore the layer")})
+                mapping = {r.Layer: r.Factor for r in edited.itertuples() if r.Factor}
+                plot = plot_geometry(rb, stats)
+                q = quantities(rb, stats, mapping, plot=plot)
+                findings = check_plan(rb, stats, mapping, plot)
+                if plot is None:
+                    st.warning("No plot boundary detected. Verify the plot area in the sidebar and check the CAD layer mapping.")
+                problems = [f for f in findings if f.severity in ("error", "warning")]
+                c1, c2 = st.columns([3, 2])
+                with c1:
+                    from verdiq_plan_figure import plan_figure
+                    st.pyplot(plan_figure(rb, stats, mapping, plot, findings), width="stretch")
+                with c2:
+                    with st.container(border=True):
+                        st.markdown("#### Verdiq has detected these quantities")
+                        st.write("Please check that they are correct before continuing. Nothing is calculated until you confirm.")
+                        st.markdown(f"- **Plot area:** {plot.area:,.1f} m² (from the plot boundary layer)".replace(",", " ")
+                                    if plot is not None else "- **Plot area:** no boundary layer found: enter it in the sidebar")
+                        n_trees = sum(v for k, v in q.items() if rb.factor(k).measure == "count" and rb.factor(k).kind == "base")
+                        st.markdown(f"- **{len(mapping)} of {len(stats)} layers** mapped to **{len(q)} factors** · "
+                                    f"{int(n_trees)} trees and other elements")
+                        if problems:
+                            st.markdown(f'<span class="vq-pill fail">{len(problems)} drawing problem(s): review before confirming</span>',
+                                        unsafe_allow_html=True)
+                            findings_list(findings)
                         else:
-                            stale = [k for k in ss.meta if k != CURRENT]
-                            for k in stale:
-                                ss.options.pop(k, None)
-                                ss.meta.pop(k, None)
-                                ss.pop(f"pa_{k}", None)
-                            ss.options[CURRENT] = q
-                            ss.meta[CURRENT] = {"kind": "current", "steps": [], "analysed": True, "edited": False,
-                                                "plot_area": area}
-                            ss.plans = {CURRENT: plan}
-                            ss.plan = plan
-                            ss["_pa_set"] = {CURRENT: area}
-                            ss.plot_area = area
-                            ss.active = CURRENT
-                            ss.flash = ("Analysis done. Open **3 · Results and advice**." +
-                                        (f" {len(stale)} earlier scenario(s) based on the previous drawing were removed."
-                                         if stale else ""))
-                        st.rerun()
-        if ss.get("flash"):
-            st.success(ss.pop("flash"))
+                            st.markdown('<span class="vq-pill pass">No drawing problems found</span>', unsafe_allow_html=True)
+                        qdf = pd.DataFrame([{"Factor": lab(k), "Quantity": f"{v:,.1f} m²".replace(",", " ")
+                                             if rb.factor(k).measure != "count" else f"{int(v)} pcs"} for k, v in q.items()])
+                        st.dataframe(qdf, hide_index=True, width="stretch", height=min(38 * (len(qdf) + 1), 360))
+                        mode = "replace"
+                        if ss.meta[CURRENT]["analysed"] and CURRENT in ss.plans:
+                            mode = st.radio("What is this drawing?", ["revised", "replace"], format_func={
+                                "revised": "Your improved design: keep the current design and evaluate this one",
+                                "replace": "A replacement for the current design: start over"}.get)
+                        if st.button(tr["confirm"], type="primary", width="stretch", disabled=not q):
+                            plan = {"stats": stats, "mapping": mapping, "plot": plot}
+                            area = round(plot.area, 1) if plot is not None else pa(CURRENT)
+                            if mode == "revised":
+                                draft = next((k for k, v in ss.meta.items() if v.get("kind") == "revised" and not v.get("saved")),
+                                             None)   # a new upload replaces an unsaved one
+                                n = 1 + sum(1 for v in ss.meta.values() if v.get("kind") == "revised" and v.get("saved"))
+                                key = draft or f"revised-{n}"
+                                ss.options[key] = q
+                                ss.meta[key] = {"kind": "revised", "n": n, "steps": [], "analysed": True, "edited": False,
+                                                "plot_area": area, "saved": False}
+                                ss.plans[key] = plan
+                                ss["_pa_set"] = {key: area}
+                                ss.active = key
+                                ss.flash = ("Analysis done for your improved design. Check the result in **GYF Assessment** "
+                                            f"and click **{tr['save_yours']}** to compare it with the current design.")
+                            else:
+                                stale = [k for k in ss.meta if k != CURRENT]
+                                for k in stale:
+                                    ss.options.pop(k, None)
+                                    ss.meta.pop(k, None)
+                                    ss.pop(f"pa_{k}", None)
+                                ss.options[CURRENT] = q
+                                ss.meta[CURRENT] = {"kind": "current", "steps": [], "analysed": True, "edited": False,
+                                                    "plot_area": area}
+                                ss.plans = {CURRENT: plan}
+                                ss.plan = plan
+                                ss["_pa_set"] = {CURRENT: area}
+                                ss["_plot_area_next"] = area
+                                ss.active = CURRENT
+                                ss.flash = ("Analysis done. Open **GYF Assessment**." +
+                                            (f" {len(stale)} earlier scenario(s) based on the previous drawing were removed."
+                                             if stale else ""))
+                            st.rerun()
+            if ss.get("flash"):
+                st.success(ss.pop("flash"))
 
     # ------------------------------------------------------------ 2 quantities
     with tab_qty:
@@ -385,54 +421,74 @@ def designer():
 
     # ------------------------------------------------------------ 3 results and advice
     with tab_res:
-        if not pa(ss.active):
-            st.info("Enter the plot area in the sidebar.")
-            return
-        if not meta["analysed"]:
-            st.info("No analysis yet. Upload a plan in **1 · Import plan** and confirm the detected quantities, "
-                    "or enter quantities by hand in **2 · Quantities** and perform the analysis here.")
-            if inputs and st.button(tr["perform"], type="primary"):
-                meta["analysed"] = True
-                st.rerun()
+        def _render_assessment():
+            if not pa(ss.active):
+                st.info("Enter the plot area in the sidebar.")
+                return
+            if not meta["analysed"]:
+                st.info("No analysis yet. Upload a plan in **Project Setup** and confirm the detected quantities, "
+                        "or enter quantities by hand in **Plan & Quantities** and perform the analysis here.")
+                if inputs and st.button(tr["perform"], type="primary"):
+                    meta["analysed"] = True
+                    st.rerun()
+            else:
+                r = run(ss.active)
+                st.markdown(f"### {disp(ss.active)}")
+                if meta.get("edited"):
+                    st.caption("Quantities were edited manually after the analysis was performed.")
+                result_cards(r, plot_area=pa(ss.active))
+
+                left, right = st.columns([1, 1])
+                with left:
+                    st.subheader("Balancing of ecosystem services")
+                    if r.balancing:
+                        balancing_bars(r)
+                    else:
+                        st.caption("This rulebook has no balancing requirement.")
+                with right:
+                    if plan_of(ss.active) is not None:
+                        st.subheader("Plan")
+                        plan_fig(ss.active)
+
+                if meta.get("kind") == "revised":
+                    with st.container(border=True):
+                        st.subheader("Your improved design")
+                        base = run(CURRENT) if ss.meta[CURRENT]["analysed"] else None
+                        if base is not None:
+                            d, dp = r.score_unrounded - base.score_unrounded, r.total_points - base.total_points
+                            st.markdown(f'<span class="vq-delta {"up" if d >= 0 else "down"}">{d:+.2f} GYF · {dp:+,.0f} eco-m²</span>'
+                                        f' compared with {disp(CURRENT)}'.replace(",", " "), unsafe_allow_html=True)
+                        if meta.get("saved"):
+                            st.success("Saved. It is shown next to the current design in **Compare Designs**, in place of "
+                                       "Verdiq's proposal.")
+                        else:
+                            st.write("Save the result to compare your design with the current design. In **Compare Designs** "
+                                     "it replaces Verdiq's improvement proposal.")
+                            if st.button(tr["save_yours"], type="primary"):
+                                meta["saved"] = True
+                                ss.flash_res = (f"Saved as **{disp(ss.active)}**. Open **Compare Designs** to see it next to the "
+                                                "current design.")
+                                st.rerun()
+                with st.expander("Line items and notes", expanded=False):
+                    li = pd.DataFrame([{"Factor": i.label, "Input": i.input_value, "Area m²": i.quantity_m2, "Weight": i.factor,
+                                        "Points": round(i.points, 2), "Groups": " ".join(i.groups)} for i in r.line_items])
+                    st.dataframe(li, hide_index=True, width="stretch")
+                    for m in r.messages:
+                        (st.error if m.severity == "error" else st.warning if m.severity == "warning" else st.info)(
+                            (f"**{lab(m.factor_id)}** - " if m.factor_id else "") + m.text)
+
+
+        _render_assessment()
+
+    # ------------------------------------------------------------ 4 design improvements
+    with tab_improve:
+        st.subheader("Design Improvements")
+        if not meta["analysed"] or not pa(ss.active):
+            st.info("Confirm DXF or manual quantities first, then open GYF Assessment.")
         else:
             r = run(ss.active)
-            st.markdown(f"### {disp(ss.active)}")
-            if meta.get("edited"):
-                st.caption("Quantities were edited manually after the analysis was performed.")
-            result_cards(r, plot_area=pa(ss.active))
-
-            left, right = st.columns([1, 1])
-            with left:
-                st.subheader("Balancing of ecosystem services")
-                if r.balancing:
-                    balancing_bars(r)
-                else:
-                    st.caption("This rulebook has no balancing requirement.")
-            with right:
-                if plan_of(ss.active) is not None:
-                    st.subheader("Plan")
-                    plan_fig(ss.active)
-
-            if meta.get("kind") == "revised":
-                with st.container(border=True):
-                    st.subheader("Your improved design")
-                    base = run(CURRENT) if ss.meta[CURRENT]["analysed"] else None
-                    if base is not None:
-                        d, dp = r.score_unrounded - base.score_unrounded, r.total_points - base.total_points
-                        st.markdown(f'<span class="vq-delta {"up" if d >= 0 else "down"}">{d:+.2f} GYF · {dp:+,.0f} eco-m²</span>'
-                                    f' compared with {disp(CURRENT)}'.replace(",", " "), unsafe_allow_html=True)
-                    if meta.get("saved"):
-                        st.success("Saved. It is shown next to the current design in **4 · Compare designs**, in place of "
-                                   "Verdiq's proposal.")
-                    else:
-                        st.write("Save the result to compare your design with the current design. In **4 · Compare designs** "
-                                 "it replaces Verdiq's improvement proposal.")
-                        if st.button(tr["save_yours"], type="primary"):
-                            meta["saved"] = True
-                            ss.flash_res = (f"Saved as **{disp(ss.active)}**. Open **4 · Compare designs** to see it next to the "
-                                            "current design.")
-                            st.rerun()
-            elif r.passed is False and r.target is not None:
+            st.caption("Recommendations are design-support scenarios, not municipal approvals. Check feasibility before use.")
+            if r.passed is False and r.target is not None:
                 with st.container(border=True):
                     st.subheader("How to close the gap")
                     pkg = suggest_package(rb, inputs, pa(ss.active), calc_kw, lang=lang)
@@ -455,7 +511,7 @@ def designer():
                                                  "unit": s.unit, "from_factor_id": s.from_factor_id, "text": s.text}
                                                 for s in pkg.steps]}
                             ss.active = new
-                            ss.flash_res = (f"**{disp(new)}** created. Open **4 · Compare designs** to see it next to the "
+                            ss.flash_res = (f"**{disp(new)}** created. Open **Compare Designs** to see it next to the "
                                             "current design.")
                             st.rerun()
                     if pkg.remaining_note:
@@ -463,22 +519,81 @@ def designer():
             if ss.get("flash_res"):
                 st.success(ss.pop("flash_res"))
 
-            with st.expander("Line items and notes", expanded=False):
-                li = pd.DataFrame([{"Factor": i.label, "Input": i.input_value, "Area m²": i.quantity_m2, "Weight": i.factor,
-                                    "Points": round(i.points, 2), "Groups": " ".join(i.groups)} for i in r.line_items])
-                st.dataframe(li, hide_index=True, width="stretch")
-                for m in r.messages:
-                    (st.error if m.severity == "error" else st.warning if m.severity == "warning" else st.info)(
-                        (f"**{lab(m.factor_id)}** - " if m.factor_id else "") + m.text)
 
+            if r.passed is True:
+                st.success("The encoded GYF and balancing requirements are met. Review the municipal documentation separately.")
+
+    # ------------------------------------------------------------ 5 compare designs
+    with tab_cmp:
+        def _render_comparison():
+            analysed = [k for k in ss.options if ss.meta.get(k, {}).get("analysed")]
+            kind = lambda k: ss.meta[k].get("kind")  # noqa: E731
+            yours = [k for k in analysed if kind(k) == "revised" and ss.meta[k].get("saved")]
+            proposals = [k for k in analysed if kind(k) == "improved"]
+            variants = [k for k in analysed if kind(k) == "variant"]
+            base = [CURRENT] if CURRENT in analysed else []
+            if yours:        # the user's own saved design replaces Verdiq's proposal in the comparison
+                pool, default = base + yours + variants, base + yours[-1:]
+                st.caption("Your improved design has replaced Verdiq's proposal here. The proposal is still in the sidebar "
+                           f"under **{tr['scenario']}**.")
+            elif proposals:
+                pool, default = base + proposals + variants, base + proposals[-1:]
+            else:
+                pool, default = base + variants, base + variants[-1:]
+            if len(pool) < 2:
+                st.info(f"Compare shows the current design next to Verdiq's improvement proposal (**{tr['save']}** in "
+                        "**GYF Assessment**), or next to your own improved design once you have uploaded it and "
+                        f"clicked **{tr['save_yours']}**.")
+                return
+            chosen = st.multiselect("Scenarios side by side (up to 3)", pool, default=default, format_func=disp,
+                                    max_selections=3, key="cmp_" + "_".join(pool))
+            if not chosen:
+                return
+            results = {k: run(k) for k in chosen}
+            base = results.get(CURRENT) or results[chosen[0]]
+            cols = st.columns(len(chosen))
+            for col, k in zip(cols, chosen):
+                r = results[k]
+                with col:
+                    st.markdown(f'<div class="vq-colhead">{disp(k)}</div>', unsafe_allow_html=True)
+                    plan_fig(k)
+            cols = st.columns(len(chosen))
+            for col, k in zip(cols, chosen):
+                r = results[k]
+                with col:
+                    result_cards(r, compact=True, plot_area=pa(k))
+                    if r is not base:
+                        d, dp = r.score - base.score, r.total_points - base.total_points
+                        cls = "up" if d >= 0 else "down"
+                        st.markdown(f'<span class="vq-delta {cls}">{d:+.2f} GYF · {dp:+,.0f} eco-m²</span> compared with '
+                                    f'{disp(CURRENT if CURRENT in results else chosen[0])}'.replace(",", " "), unsafe_allow_html=True)
+                    st.markdown("**Balancing**")
+                    balancing_bars(r)
+                    steps = ss.meta.get(k, {}).get("steps") or []
+                    if steps:
+                        with st.expander(f"{len(steps)} interventions as a list"):
+                            st.markdown("\n".join(f"- {s['text']}" for s in steps))
+
+
+        _render_comparison()
+
+    # ------------------------------------------------------------ 6 reports and export
+    with tab_reports:
+        if not meta["analysed"] or not pa(ss.active):
+            st.info("Complete a GYF assessment to enable report generation and exports.")
+        else:
+            r = run(ss.active)
+            li = pd.DataFrame([{"Factor": i.label, "Input": i.input_value, "Area m²": i.quantity_m2,
+                                "Weight": i.factor, "Points": round(i.points, 2), "Groups": " ".join(i.groups)}
+                               for i in r.line_items])
             st.subheader("Report and export")
             with st.container(border=True):
                 st.caption("A report to attach to the GYF submission: result, balancing, plan with drawing checks, "
                            "every line item, notes and a comparison of all scenarios.")
-                p1, p2, p3 = st.columns(3)
-                proj_name = p1.text_input("Project", ss.get("proj_name", ""), key="proj_name")
-                proj_prop = p2.text_input("Property / address", ss.get("proj_prop", ""), key="proj_prop")
-                proj_author = p3.text_input("Prepared by", ss.get("proj_author", ""), key="proj_author")
+                proj_name = ss.get("proj_name", "")
+                proj_prop = ss.get("proj_prop", "")
+                proj_author = st.text_input("Prepared by", key="proj_author")
+                st.caption(f"Project: {proj_name or 'Not specified'} · Site: {proj_prop or 'Not specified'}")
                 if st.button("Create PDF report", type="primary"):
                     from verdiq_pdf import build_report, plan_png_bytes
                     with st.spinner("Building the report..."):
@@ -517,55 +632,6 @@ def designer():
                             st.download_button("Download filled template", out_p.read_bytes(),
                                                f"GYF_{muni}_{re.sub(r'[^A-Za-z0-9]+', '_', disp(ss.active))}.xlsx")
 
-    # ------------------------------------------------------------ 4 compare designs
-    with tab_cmp:
-        analysed = [k for k in ss.options if ss.meta.get(k, {}).get("analysed")]
-        kind = lambda k: ss.meta[k].get("kind")  # noqa: E731
-        yours = [k for k in analysed if kind(k) == "revised" and ss.meta[k].get("saved")]
-        proposals = [k for k in analysed if kind(k) == "improved"]
-        variants = [k for k in analysed if kind(k) == "variant"]
-        base = [CURRENT] if CURRENT in analysed else []
-        if yours:        # the user's own saved design replaces Verdiq's proposal in the comparison
-            pool, default = base + yours + variants, base + yours[-1:]
-            st.caption("Your improved design has replaced Verdiq's proposal here. The proposal is still in the sidebar "
-                       f"under **{tr['scenario']}**.")
-        elif proposals:
-            pool, default = base + proposals + variants, base + proposals[-1:]
-        else:
-            pool, default = base + variants, base + variants[-1:]
-        if len(pool) < 2:
-            st.info(f"Compare shows the current design next to Verdiq's improvement proposal (**{tr['save']}** in "
-                    "**3 · Results and advice**), or next to your own improved design once you have uploaded it and "
-                    f"clicked **{tr['save_yours']}**.")
-            return
-        chosen = st.multiselect("Scenarios side by side (up to 3)", pool, default=default, format_func=disp,
-                                max_selections=3, key="cmp_" + "_".join(pool))
-        if not chosen:
-            return
-        results = {k: run(k) for k in chosen}
-        base = results.get(CURRENT) or results[chosen[0]]
-        cols = st.columns(len(chosen))
-        for col, k in zip(cols, chosen):
-            r = results[k]
-            with col:
-                st.markdown(f'<div class="vq-colhead">{disp(k)}</div>', unsafe_allow_html=True)
-                plan_fig(k)
-        cols = st.columns(len(chosen))
-        for col, k in zip(cols, chosen):
-            r = results[k]
-            with col:
-                result_cards(r, compact=True, plot_area=pa(k))
-                if r is not base:
-                    d, dp = r.score - base.score, r.total_points - base.total_points
-                    cls = "up" if d >= 0 else "down"
-                    st.markdown(f'<span class="vq-delta {cls}">{d:+.2f} GYF · {dp:+,.0f} eco-m²</span> compared with '
-                                f'{disp(CURRENT if CURRENT in results else chosen[0])}'.replace(",", " "), unsafe_allow_html=True)
-                st.markdown("**Balancing**")
-                balancing_bars(r)
-                steps = ss.meta.get(k, {}).get("steps") or []
-                if steps:
-                    with st.expander(f"{len(steps)} interventions as a list"):
-                        st.markdown("\n".join(f"- {s['text']}" for s in steps))
 
 
 designer()
